@@ -91,8 +91,8 @@ No Python installation required! Simply download and run:
 
 
 
-# P.S Media Information
+# P.S. Media Information
 
-![ui](media/ui.png)
+![ui](media/ui.png) <br>
 ![library](media/library.png)
 
