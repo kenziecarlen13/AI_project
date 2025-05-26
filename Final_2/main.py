@@ -331,9 +331,9 @@ class ImageProcessor:
             new_width = int(melody_height * new_aspect_ratio)
 
             new_resized = new_img.resize((new_width, melody_height), resample=Image.LANCZOS)
-            new_bright = ImageEnhance.Brightness(new_resized).enhance(1.7)
-            new_contrasted = ImageEnhance.Contrast(new_bright).enhance(1.7)
-            new_sharp = ImageEnhance.Sharpness(new_contrasted).enhance(1.6)
+            new_bright = ImageEnhance.Brightness(new_resized).enhance(1.8)
+            new_contrasted = ImageEnhance.Contrast(new_bright).enhance(1.2)
+            new_sharp = ImageEnhance.Sharpness(new_contrasted).enhance(1.2)
 
             # Create output directory
             os.makedirs(self.output_dir, exist_ok=True)
@@ -355,9 +355,9 @@ class ImageProcessor:
             new_img = Image.open(input_path)
             
             # Apply basic enhancements
-            new_bright = ImageEnhance.Brightness(new_img).enhance(1.7)
-            new_contrasted = ImageEnhance.Contrast(new_bright).enhance(1.7)
-            new_sharp = ImageEnhance.Sharpness(new_contrasted).enhance(1.6)
+            new_bright = ImageEnhance.Brightness(new_img).enhance(1.8)
+            new_contrasted = ImageEnhance.Contrast(new_bright).enhance(1.2)
+            new_sharp = ImageEnhance.Sharpness(new_contrasted).enhance(1.2)
 
             # Create output directory
             os.makedirs(self.output_dir, exist_ok=True)
