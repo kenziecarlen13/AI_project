@@ -88,3 +88,11 @@ No Python installation required! Simply download and run:
 **Note**: This project was developed with lots of ☕, a few 😭 moments when the HDD decided to take breaks, but ultimately built with 💖 for the AI community!
 
 > ⚠️ **Hardware Warning**: Training deep learning models can be intensive on your system. Make sure you have adequate cooling and storage space! 🧊
+
+
+
+# P.S Media Information
+
+![ui](media/ui.png)
+![library](media/library.png)
+
