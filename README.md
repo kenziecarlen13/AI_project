@@ -45,11 +45,6 @@ No Python installation required! Simply download and run:
    pip install opencv-python-headless numpy tensorflow keras pillow
    ```
 
-   Or install from requirements file:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
 3. **Run the application**
    ```python
    python main.py
