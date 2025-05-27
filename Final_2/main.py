@@ -7,34 +7,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from PIL import Image, ImageEnhance, ImageTk
 import threading
-import time
-import json
-from datetime import datetime
 
 import tensorflow as tf
 from keras import backend as K
 from keras.models import Model, load_model
 from keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Bidirectional, LSTM, Dense, Lambda, Activation, BatchNormalization, Dropout
-
-def get_base_path():
-    """Get the base path for the application (works for both script and exe)"""
-    if getattr(sys, 'frozen', False):
-        # Running as compiled executable
-        base_path = os.path.dirname(sys.executable)
-    else:
-        # Running as script
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return base_path
-
-def get_resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = get_base_path()
-    
-    return os.path.join(base_path, relative_path)
 
 class HandwritingPredictor:
     def __init__(self, model_path):
@@ -48,7 +25,6 @@ class HandwritingPredictor:
         self.alphabets = u"ABCDEFGHIJKLMNOPQRSTUVWXYZ-' "
         self.num_of_characters = len(self.alphabets) + 1  # +1 for CTC blank
         self.model = None
-        self.is_model_loaded = False
         
         # Load the model
         self.load_model()
@@ -98,10 +74,7 @@ class HandwritingPredictor:
         return K.ctc_batch_cost(labels, y_pred, input_length, label_length)
         
     def load_model(self):
-        """Load the trained CRNN model with improved error handling"""
-        if not os.path.exists(self.model_path):
-            raise FileNotFoundError(f"Model file not found: {self.model_path}")
-            
+        """Load the trained CRNN model"""
         try:
             # Method 1: Try loading with custom objects
             custom_objects = {
@@ -109,7 +82,7 @@ class HandwritingPredictor:
                 'ctc': lambda y_true, y_pred: y_pred
             }
             
-            full_model = load_model(self.model_path, custom_objects=custom_objects, compile=False)
+            full_model = load_model(self.model_path, custom_objects=custom_objects)
             
             # Extract the prediction model (input to softmax layer)
             input_layer = full_model.input
@@ -120,7 +93,6 @@ class HandwritingPredictor:
             self.model = Model(inputs=input_layer, outputs=softmax_layer)
             
             print(f"Model loaded successfully from: {self.model_path}")
-            self.is_model_loaded = True
             
         except Exception as e:
             print(f"Method 1 failed: {e}")
@@ -131,21 +103,17 @@ class HandwritingPredictor:
                 self.model = self.build_prediction_model()
                 
                 # Load the full model to extract weights
-                full_model = load_model(self.model_path, custom_objects={
-                    'ctc_lambda_func': self.ctc_lambda_func, 
-                    'ctc': lambda y_true, y_pred: y_pred
-                }, compile=False)
+                full_model = load_model(self.model_path, custom_objects={'ctc_lambda_func': self.ctc_lambda_func, 'ctc': lambda y_true, y_pred: y_pred})
                 
                 # Transfer weights from loaded model to prediction model
                 for layer in self.model.layers:
                     if layer.name in [l.name for l in full_model.layers]:
                         try:
                             layer.set_weights(full_model.get_layer(layer.name).get_weights())
-                        except Exception as weight_error:
-                            print(f"Could not transfer weights for layer {layer.name}: {weight_error}")
+                        except:
+                            print(f"Could not transfer weights for layer: {layer.name}")
                             
                 print("Model loaded successfully using method 2")
-                self.is_model_loaded = True
                 
             except Exception as e2:
                 print(f"Method 2 also failed: {e2}")
@@ -159,18 +127,16 @@ class HandwritingPredictor:
                     if os.path.exists(weights_path):
                         self.model.load_weights(weights_path)
                         print("Model loaded using separate weights file")
-                        self.is_model_loaded = True
                     else:
                         raise Exception("Could not load model with any method")
                         
                 except Exception as e3:
                     print(f"All methods failed. Last error: {e3}")
-                    self.is_model_loaded = False
                     raise e3
     
     def preprocess_image(self, img_path):
         """
-        Preprocess the input image for prediction with improved error handling
+        Preprocess the input image for prediction
         
         Args:
             img_path (str): Path to the input image
@@ -230,13 +196,13 @@ class HandwritingPredictor:
         for ch in num_array:
             if ch == -1:  # CTC Blank
                 break
-            elif ch < len(self.alphabets):
+            else:
                 result += self.alphabets[ch]
         return result
     
     def predict_text(self, img_path, verbose=True):
         """
-        Predict text from handwriting image with improved error handling
+        Predict text from handwriting image
         
         Args:
             img_path (str): Path to the input image
@@ -245,10 +211,6 @@ class HandwritingPredictor:
         Returns:
             str: Predicted text
         """
-        if not self.is_model_loaded:
-            print("Model is not loaded properly")
-            return None
-            
         if verbose:
             print(f"Processing image: {img_path}")
         
@@ -274,7 +236,7 @@ class HandwritingPredictor:
                 decoded_dense = tf.sparse.to_dense(decoded[0], default_value=-1).numpy()
                 predicted_text = self.num_to_label(decoded_dense[0])
                 
-            except Exception as decode_error:
+            except:
                 # Method 2: Alternative approach using tf.nn.ctc_greedy_decoder
                 try:
                     # Transpose pred to shape [time_steps, batch_size, num_classes]
@@ -341,9 +303,16 @@ class HandwritingPredictor:
 
 class ImageProcessor:
     def __init__(self):
-        base_path = get_base_path()
-        self.reference_path = os.path.join(base_path, "data_app", "reference", "reference.jpg")
-        self.output_dir = os.path.join(base_path, "data_app", "result")
+        # Handle paths for both development and executable
+        if getattr(sys, 'frozen', False):
+            # Running as executable
+            base_path = sys._MEIPASS
+            self.reference_path = os.path.join(base_path, "data_app", "reference", "reference.jpg")
+            self.output_dir = os.path.join(os.getcwd(), "data_app", "result")  # Use current working directory for output
+        else:
+            # Running as script
+            self.reference_path = "data_app/reference/reference.jpg"
+            self.output_dir = "data_app/result"
         
     def process_image(self, input_path):
         """
@@ -425,38 +394,6 @@ class ImageProcessor:
             return output_path
             
         except Exception as e:
-            print(f"Error processing image: {e}")
-            return None
-    
-    def _process_without_reference(self, input_path):
-        """
-        Process image without reference (fallback method)
-        """
-        try:
-            new_img = Image.open(input_path)
-            
-            # Enhanced processing untuk kontras area gelap yang lebih baik
-            # 1. Tingkatkan kontras terlebih dahulu untuk memisahkan area gelap dan terang
-            new_contrasted = ImageEnhance.Contrast(new_img).enhance(1.5)
-            
-            # 2. Sedikit tingkatkan brightness untuk area gelap tidak terlalu gelap
-            new_bright = ImageEnhance.Brightness(new_contrasted).enhance(1.8)
-            
-            # 3. Tingkatkan kontras lagi setelah brightness adjustment
-            new_contrasted2 = ImageEnhance.Contrast(new_bright).enhance(1.3)
-            
-            # 4. Tingkatkan sharpness untuk detail yang lebih tajam
-            new_sharp = ImageEnhance.Sharpness(new_contrasted2).enhance(1.4)
-
-            # Create output directory
-            os.makedirs(self.output_dir, exist_ok=True)
-
-            output_path = os.path.join(self.output_dir, "result.jpg")
-            new_sharp.save(output_path)
-
-            return output_path
-            
-        except Exception as e:
             print(f"Error in fallback processing: {e}")
             return None
 
@@ -471,9 +408,14 @@ class HandwritingRecognitionGUI:
         self.predictor = None
         self.processor = ImageProcessor()
         
-        # Use relative path for model
-        base_path = get_base_path()
-        self.model_path = os.path.join(base_path, "data_app", "Final", "model.h5")
+        # Handle model path for both development and executable
+        if getattr(sys, 'frozen', False):
+            # Running as executable
+            base_path = sys._MEIPASS
+            self.model_path = os.path.join(base_path, "data_app", "Final", "model.h5")
+        else:
+            # Running as script
+            self.model_path = "data_app/Final/model.h5"
         
         # Setup GUI
         self.setup_gui()
@@ -566,10 +508,7 @@ class HandwritingRecognitionGUI:
                 self.update_status("Loading model...", "orange")
                 if os.path.exists(self.model_path):
                     self.predictor = HandwritingPredictor(self.model_path)
-                    if self.predictor.is_model_loaded:
-                        self.update_status("Model loaded successfully", "green")
-                    else:
-                        self.update_status("Failed to load model properly", "red")
+                    self.update_status("Model loaded successfully", "green")
                 else:
                     self.update_status(f"Model file not found: {self.model_path}", "red")
             except Exception as e:
@@ -619,8 +558,8 @@ class HandwritingRecognitionGUI:
             messagebox.showwarning("Warning", "Please select a valid image file.")
             return
         
-        if self.predictor is None or not self.predictor.is_model_loaded:
-            messagebox.showerror("Error", "Model is not loaded properly. Please check the model path and try restarting the application.")
+        if self.predictor is None:
+            messagebox.showerror("Error", "Model is not loaded. Please check the model path.")
             return
         
         # Disable button and start progress
@@ -660,20 +599,20 @@ class HandwritingRecognitionGUI:
     def save_result_to_file(self, result):
         """Save prediction result to text file"""
         try:
-            # Create folder relative to executable location
-            base_path = get_base_path()
-            folder = os.path.join(base_path, "image_to_text")
+            # Handle output path for both development and executable
+            if getattr(sys, 'frozen', False):
+                # Running as executable - save to current working directory
+                folder = os.path.join(os.getcwd(), "image_to_text")
+            else:
+                # Running as script
+                folder = os.path.abspath("image_to_text")
+                
             os.makedirs(folder, exist_ok=True)
             
-            # Create safe filename
-            safe_result = "".join(c for c in result if c.isalnum() or c in (' ', '-', '_')).rstrip()
-            if not safe_result:
-                safe_result = f"result_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            
-            file_name = f'{safe_result}.txt'
+            file_name = f'{result}.txt'
             file_path = os.path.join(folder, file_name)
             
-            with open(file_path, 'w', encoding='utf-8') as file:
+            with open(file_path, 'w') as file:
                 file.write(f'{result}\n')
             
             print(f"Result saved to: {file_path}")
