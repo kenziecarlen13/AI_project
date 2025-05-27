@@ -5,16 +5,50 @@ import subprocess
 
 def process_image(input_path):
     try:
-        # Path referensi melody_img, sesuaikan sesuai foldermu
-        melody_path = "data_app/reference/reference.jpg"
-        melody_img = Image.open(melody_path)
+        # Path referensi reference_img, sesuaikan sesuai foldermu
+        reference_path = "data_app/reference/reference.jpg"
+        reference_img = Image.open(reference_path)
         new_img = Image.open(input_path)
 
-        melody_height = melody_img.height
-        new_aspect_ratio = new_img.width / round(new_img.height/2)
-        new_width = int(melody_height * new_aspect_ratio)
+        # Cek apakah input image lebih besar dari reference image
+        reference_width = reference_img.width
+        reference_height = reference_img.height
+        input_width = new_img.width
+        input_height = new_img.height
 
-        new_resized = new_img.resize((new_width, melody_height), resample=Image.LANCZOS)
+        # Jika input image lebih besar dari reference, resize dengan mempertahankan aspect ratio
+        if input_width > reference_width or input_height > reference_height:
+            # Hitung ratio untuk resize sambil mempertahankan aspect ratio
+            width_ratio = reference_width / input_width
+            height_ratio = reference_height / input_height
+            
+            # Pilih ratio yang lebih kecil agar gambar tidak melebihi ukuran reference
+            resize_ratio = min(width_ratio, height_ratio)
+            
+            # Hitung ukuran baru
+            new_width = int(input_width * resize_ratio)
+            new_height = int(input_height * resize_ratio)
+            
+            # Resize dengan mempertahankan aspect ratio
+            new_resized = new_img.resize((new_width, new_height), resample=Image.LANCZOS)
+            
+            # Jika ukuran hasil resize tidak sama persis dengan reference, buat canvas baru
+            if new_width != reference_width or new_height != reference_height:
+                # Buat canvas putih dengan ukuran reference
+                canvas = Image.new('RGB', (reference_width, reference_height), 'white')
+                
+                # Hitung posisi untuk center gambar
+                x_offset = (reference_width - new_width) // 2
+                y_offset = (reference_height - new_height) // 2
+                
+                # Paste gambar ke center canvas
+                canvas.paste(new_resized, (x_offset, y_offset))
+                new_resized = canvas
+        else:
+            # Jika ukuran input <= reference, langsung proses tanpa resize
+            new_resized = new_img
+
+        # Proses enhancement
         new_bright = ImageEnhance.Brightness(new_resized).enhance(1.7)
         new_contrasted = ImageEnhance.Contrast(new_bright).enhance(1.7)
         new_sharp = ImageEnhance.Sharpness(new_contrasted).enhance(1.6)

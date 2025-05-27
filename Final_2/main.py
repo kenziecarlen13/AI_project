@@ -308,7 +308,7 @@ class ImageProcessor:
         
     def process_image(self, input_path):
         """
-        Process the input image to match the reference format
+        Process the input image with improved contrast and sizing logic
         
         Args:
             input_path (str): Path to input image
@@ -323,17 +323,59 @@ class ImageProcessor:
                 # Use default processing without reference
                 return self._process_without_reference(input_path)
             
-            melody_img = Image.open(self.reference_path)
+            reference_img = Image.open(self.reference_path)
             new_img = Image.open(input_path)
 
-            melody_height = melody_img.height
-            new_aspect_ratio = new_img.width / round(new_img.height/2)
-            new_width = int(melody_height * new_aspect_ratio)
+            # Get dimensions
+            reference_width = reference_img.width
+            reference_height = reference_img.height
+            input_width = new_img.width
+            input_height = new_img.height
 
-            new_resized = new_img.resize((new_width, melody_height), resample=Image.LANCZOS)
-            new_bright = ImageEnhance.Brightness(new_resized).enhance(1.9)
-            new_contrasted = ImageEnhance.Contrast(new_bright).enhance(1.2)
-            new_sharp = ImageEnhance.Sharpness(new_contrasted).enhance(1.2)
+            # Jika input image lebih besar dari reference, resize dengan mempertahankan aspect ratio
+            if input_width > reference_width or input_height > reference_height:
+                # Hitung ratio untuk resize sambil mempertahankan aspect ratio
+                width_ratio = reference_width / input_width
+                height_ratio = reference_height / input_height
+                
+                # Pilih ratio yang lebih kecil agar gambar tidak melebihi ukuran reference
+                resize_ratio = min(width_ratio, height_ratio)
+                
+                # Hitung ukuran baru
+                new_width = int(input_width * resize_ratio)
+                new_height = int(input_height * resize_ratio)
+                
+                # Resize dengan mempertahankan aspect ratio
+                new_resized = new_img.resize((new_width, new_height), resample=Image.LANCZOS)
+                
+                # Jika ukuran hasil resize tidak sama persis dengan reference, buat canvas baru
+                if new_width != reference_width or new_height != reference_height:
+                    # Buat canvas putih dengan ukuran reference
+                    canvas = Image.new('RGB', (reference_width, reference_height), 'white')
+                    
+                    # Hitung posisi untuk center gambar
+                    x_offset = (reference_width - new_width) // 2
+                    y_offset = (reference_height - new_height) // 2
+                    
+                    # Paste gambar ke center canvas
+                    canvas.paste(new_resized, (x_offset, y_offset))
+                    new_resized = canvas
+            else:
+                # Jika ukuran input <= reference, langsung proses tanpa resize
+                new_resized = new_img
+
+            # Enhanced processing untuk kontras area gelap yang lebih baik
+            # 1. Tingkatkan kontras terlebih dahulu untuk memisahkan area gelap dan terang
+            new_contrasted = ImageEnhance.Contrast(new_resized).enhance(1.5)
+            
+            # 2. Sedikit tingkatkan brightness untuk area gelap tidak terlalu gelap
+            new_bright = ImageEnhance.Brightness(new_contrasted).enhance(1.8)
+            
+            # 3. Tingkatkan kontras lagi setelah brightness adjustment
+            new_contrasted2 = ImageEnhance.Contrast(new_bright).enhance(1.3)
+            
+            # 4. Tingkatkan sharpness untuk detail yang lebih tajam
+            new_sharp = ImageEnhance.Sharpness(new_contrasted2).enhance(1.4)
 
             # Create output directory
             os.makedirs(self.output_dir, exist_ok=True)
@@ -354,10 +396,18 @@ class ImageProcessor:
         try:
             new_img = Image.open(input_path)
             
-            # Apply basic enhancements
-            new_bright = ImageEnhance.Brightness(new_img).enhance(1.9)
-            new_contrasted = ImageEnhance.Contrast(new_bright).enhance(1.2)
-            new_sharp = ImageEnhance.Sharpness(new_contrasted).enhance(1.2)
+            # Enhanced processing untuk kontras area gelap yang lebih baik
+            # 1. Tingkatkan kontras terlebih dahulu untuk memisahkan area gelap dan terang
+            new_contrasted = ImageEnhance.Contrast(new_img).enhance(1.5)
+            
+            # 2. Sedikit tingkatkan brightness untuk area gelap tidak terlalu gelap
+            new_bright = ImageEnhance.Brightness(new_contrasted).enhance(1.8)
+            
+            # 3. Tingkatkan kontras lagi setelah brightness adjustment
+            new_contrasted2 = ImageEnhance.Contrast(new_bright).enhance(1.3)
+            
+            # 4. Tingkatkan sharpness untuk detail yang lebih tajam
+            new_sharp = ImageEnhance.Sharpness(new_contrasted2).enhance(1.4)
 
             # Create output directory
             os.makedirs(self.output_dir, exist_ok=True)
