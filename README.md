@@ -93,6 +93,6 @@ No Python installation required! Simply download and run:
 
 # P.S. Media Information
 
-![ui](media/ui.png) <br>
+![ui](media/ui_test.png) <br>
 ![library](media/library.png)
 
