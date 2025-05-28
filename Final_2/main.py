@@ -382,6 +382,7 @@ class ImageProcessor:
             # 3. Tingkatkan kontras lagi setelah brightness adjustment
             new_contrasted2 = ImageEnhance.Contrast(new_bright).enhance(1.3)
             
+            
             # 4. Tingkatkan sharpness untuk detail yang lebih tajam
             new_sharp = ImageEnhance.Sharpness(new_contrasted2).enhance(1.4)
 
