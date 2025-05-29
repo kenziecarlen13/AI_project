@@ -21,7 +21,7 @@ class HandwritingPredictor:
         Args:
             model_path (str): Path to the saved model (.h5 file)
         """
-        self.model_path = model_path
+        self.model_path = "data_app/Final/model.h5"
         self.alphabets = u"ABCDEFGHIJKLMNOPQRSTUVWXYZ-' "
         self.num_of_characters = len(self.alphabets) + 1  # +1 for CTC blank
         self.model = None
